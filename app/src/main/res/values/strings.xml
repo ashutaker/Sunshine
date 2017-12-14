@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">Sunshine</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="action_settings">Settings</string>
+    <string name="title_activity_detail">DetailActivity</string>
+    <string name="title_activity_settings">Settings</string>
+
+    <!-- Strings related to Settings -->
+    <string name="pref_location_key">location</string>
+    <string name="pref_location_default">Bangalore</string>
+    <string name="pref_location_label">Location</string>
+
+
+</resources>
