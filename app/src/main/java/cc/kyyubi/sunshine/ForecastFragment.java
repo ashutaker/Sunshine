@@ -2,7 +2,9 @@ package cc.kyyubi.sunshine;
 
 import android.app.Fragment;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.annotation.Nullable;
 import android.text.format.Time;
 import android.util.Log;
@@ -57,12 +59,14 @@ public class ForecastFragment extends Fragment {
     @Override
     public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
         inflater.inflate(R.menu.forecastfragment, menu);
+        MenuItem item = menu.findItem(R.id.action_share);
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
 
         if (item.getItemId() == R.id.action_refresh) {
+
             updateFromAPI();
         }
         return super.onOptionsItemSelected(item);
@@ -73,21 +77,21 @@ public class ForecastFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
         View rootview = inflater.inflate(R.layout.fragment_main, container, false);
 
-        final String[] forecastArray = {
-                "Mon 6/23 - Sunny - 31/17",
-                "Tue 6/24 - Foggy - 21/8",
-                "Wed 6/25 - Cloudy - 22/17",
-                "Thurs 6/26 - Rainy - 18/11",
-                "Fri 6/27 - Foggy - 21/10",
-                "Sat 6/28 - TRAPPED IN WEATHERSTATION - 23/18",
-                "Sun 6/29 - Sunny - 20/7"
-        };
-        List<String> weekForecast = new ArrayList<String>(Arrays.asList(forecastArray));
+//        final String[] forecastArray = {
+//                "Mon 6/23 - Sunny - 31/17",
+//                "Tue 6/24 - Foggy - 21/8",
+//                "Wed 6/25 - Cloudy - 22/17",
+//                "Thurs 6/26 - Rainy - 18/11",
+//                "Fri 6/27 - Foggy - 21/10",
+//                "Sat 6/28 - TRAPPED IN WEATHERSTATION - 23/18",
+//                "Sun 6/29 - Sunny - 20/7"
+//        };
+
         mForecastAdapter = new ArrayAdapter<String>(
                 getActivity()
                 , R.layout.list_item_forecast
                 , R.id.list_item_forecast_textview
-                , weekForecast);
+                , new ArrayList<String>());
 
         listView = (ListView) rootview.findViewById(R.id.listview_forecast);
         listView.setAdapter(mForecastAdapter);
@@ -95,17 +99,28 @@ public class ForecastFragment extends Fragment {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 String forecast = mForecastAdapter.getItem(position);
-                Toast.makeText(getActivity(),forecast,Toast.LENGTH_SHORT).show();
-                Intent intentDetail = new Intent(getActivity(),DetailActivity.class).putExtra(Intent.EXTRA_TEXT,forecast);
+                Toast.makeText(getActivity(), forecast, Toast.LENGTH_SHORT).show();
+                Intent intentDetail = new Intent(getActivity(), DetailActivity.class).putExtra(Intent.EXTRA_TEXT, forecast);
                 startActivity(intentDetail);
             }
         });
 
 
-
         return rootview;
     }
-    private void updateFromAPI(){
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        updateFromAPI();
+    }
+
+    private void updateFromAPI() {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        city = sharedPreferences.getString(getString(R.string.pref_location_key)
+                , getString(R.string.pref_location_default));
+
+
         Call<ForecastResponse> call = ForecastAPI.getApi().getForecast(city, days, units);
         call.enqueue(new Callback<ForecastResponse>() {
 
@@ -138,6 +153,17 @@ public class ForecastFragment extends Fragment {
 
     private String formatHighLows(double high, double low) {
         // For presentation, assume the user doesn't care about tenths of a degree.
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(getActivity());
+        units = sharedPreferences.getString(getString(R.string.pref_units_key)
+                , getString(R.string.pref_units_default));
+
+        if (units.equals(getString(R.string.pref_units_imperial))) {
+            high = (high * 1.8) + 32;
+            low = (low * 1.8) + 32;
+        } else if (!units.equals(getString(R.string.pref_units_metric))) {
+            Log.d(LOG_TAG, "Unit Type not found: " + units);
+        }
+
         long roundedHigh = Math.round(high);
         long roundedLow = Math.round(low);
 
@@ -165,7 +191,7 @@ public class ForecastFragment extends Fragment {
 
             Double high = forecastData.getList().get(i).getTemp().getMax();
             //Log.d(LOG_TAG,String.valueOf(forecastData.getList().get(i).getTemp().getMax()));
-            Double low = forecastData.getList().get(i).getTemp().getMax();
+            Double low = forecastData.getList().get(i).getTemp().getMin();
 
             highLow = formatHighLows(high, low);
 
