@@ -1,11 +1,20 @@
 package cc.kyyubi.sunshine;
 
-import android.app.Fragment;
+//import android.app.Fragment;
+
+
+import android.arch.lifecycle.Lifecycle;
+import android.arch.lifecycle.LifecycleOwner;
+import android.arch.lifecycle.LifecycleRegistry;
+import android.arch.lifecycle.Observer;
+import android.arch.lifecycle.ViewModelProviders;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.app.Fragment;
 import android.text.format.Time;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -21,26 +30,32 @@ import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
+import cc.kyyubi.sunshine.db.Weather;
 import cc.kyyubi.sunshine.model.ForecastResponse;
+import cc.kyyubi.sunshine.model.ForecastViewModel;
 import cc.kyyubi.sunshine.networking.ForecastAPI;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
+import static android.content.ContentValues.TAG;
+
 /**
  * Created by U0162467 on 12/7/2017.
  */
 
-public class ForecastFragment extends Fragment {
+public class ForecastFragment extends Fragment implements LifecycleOwner {
 
     private String LOG_TAG = ForecastFragment.class.getSimpleName();
     private ListView listView;
-    private static List<cc.kyyubi.sunshine.model.List> weatherStore;
+
     private ForecastResponse forecastResponse;
     ArrayAdapter<String> mForecastAdapter;
+    private ForecastViewModel mViewModel;
+    private LifecycleRegistry mLifecycleRegistry;
+
 
     private String city = "Bangalore";
     private int days = 7;
@@ -51,9 +66,22 @@ public class ForecastFragment extends Fragment {
     }
 
     @Override
+    public void onActivityCreated(@Nullable Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+
+        // Get a reference to the ViewModel for this screen.
+        mViewModel = ViewModelProviders.of(this).get(ForecastViewModel.class);
+//        subscribeUiForecast();
+    }
+
+    @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setHasOptionsMenu(true);
+        mLifecycleRegistry = new LifecycleRegistry(this);
+        mLifecycleRegistry.markState(Lifecycle.State.CREATED);
+
+
     }
 
     @Override
@@ -77,17 +105,7 @@ public class ForecastFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, Bundle savedInstanceState) {
         View rootview = inflater.inflate(R.layout.fragment_main, container, false);
 
-//        final String[] forecastArray = {
-//                "Mon 6/23 - Sunny - 31/17",
-//                "Tue 6/24 - Foggy - 21/8",
-//                "Wed 6/25 - Cloudy - 22/17",
-//                "Thurs 6/26 - Rainy - 18/11",
-//                "Fri 6/27 - Foggy - 21/10",
-//                "Sat 6/28 - TRAPPED IN WEATHERSTATION - 23/18",
-//                "Sun 6/29 - Sunny - 20/7"
-//        };
-
-        mForecastAdapter = new ArrayAdapter<String>(
+        mForecastAdapter = new ArrayAdapter<>(
                 getActivity()
                 , R.layout.list_item_forecast
                 , R.id.list_item_forecast_textview
@@ -95,13 +113,17 @@ public class ForecastFragment extends Fragment {
 
         listView = (ListView) rootview.findViewById(R.id.listview_forecast);
         listView.setAdapter(mForecastAdapter);
+
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 String forecast = mForecastAdapter.getItem(position);
                 Toast.makeText(getActivity(), forecast, Toast.LENGTH_SHORT).show();
+                String db = mViewModel.getWeatherDetail(position).toString();
+                Log.d(TAG, "Weather detail from DB: " + db);
                 Intent intentDetail = new Intent(getActivity(), DetailActivity.class).putExtra(Intent.EXTRA_TEXT, forecast);
                 startActivity(intentDetail);
+
             }
         });
 
@@ -112,7 +134,20 @@ public class ForecastFragment extends Fragment {
     @Override
     public void onStart() {
         super.onStart();
-        updateFromAPI();
+        //updateFromAPI();
+        //subscribeUiForecast();
+        updateFromDB();
+    }
+
+    private void updateFromDB() {
+        List<Weather> data = mViewModel.weatherList;
+        if (data.size()< 7){
+            updateFromAPI();
+        }else{
+            String[] forecast = getWeatherDataListFromDb(data,7);
+            mForecastAdapter.clear();
+            mForecastAdapter.addAll(forecast);
+        }
     }
 
     private void updateFromAPI() {
@@ -130,9 +165,10 @@ public class ForecastFragment extends Fragment {
                 Toast.makeText(getActivity(), "RESPONSE RECEIVED", Toast.LENGTH_SHORT).show();
 
                 Log.d(LOG_TAG, forecastResponse.getCity().getName());
+
+
                 String[] result = getWeatherDataList(forecastResponse, days);
                 mForecastAdapter.clear();
-
                 mForecastAdapter.addAll(result);
             }
 
@@ -171,6 +207,7 @@ public class ForecastFragment extends Fragment {
         return highLowStr;
     }
 
+
     private String[] getWeatherDataList(ForecastResponse forecastData, int days) {
 
         Time dayTime = new Time();
@@ -201,4 +238,43 @@ public class ForecastFragment extends Fragment {
         return resultStr;
     }
 
+    private String[] getWeatherDataListFromDb(List<Weather> forecastData, int days) {
+
+        SimpleDateFormat df = new SimpleDateFormat("EEE MMM dd");
+
+//        Time dayTime = new Time();
+//        dayTime.setToNow();
+//        int julianStartDay = Time.getJulianDay(System.currentTimeMillis(), dayTime.gmtoff);
+//        dayTime = new Time();
+
+        String[] resultStr = new String[days];
+        for (int i = 0; i < days; i++) {
+            String day;
+            String description;
+            String highLow;
+
+
+            day = df.format(forecastData.get(i).date);
+//            long dateTime = dayTime.setJulianDay(julianStartDay + i);
+//            day = getReadableDateString(dateTime);
+
+            float high = forecastData.get(i).max_temp;
+            //Log.d(LOG_TAG,String.valueOf(forecastData.getList().get(i).getTemp().getMax()));
+            float low = forecastData.get(i).min_temp;
+
+            highLow = formatHighLows(high, low);
+
+            description = forecastData.get(i).description;
+            resultStr[i] = day + " - " + description + " - " + highLow;
+        }
+        return resultStr;
+    }
+
+
+
+    @NonNull
+    @Override
+    public Lifecycle getLifecycle() {
+        return mLifecycleRegistry;
+    }
 }

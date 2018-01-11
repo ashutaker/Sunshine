@@ -1,6 +1,7 @@
 package cc.kyyubi.sunshine;
 
 import android.app.Fragment;
+import android.arch.lifecycle.ViewModelProviders;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
@@ -23,19 +24,24 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import cc.kyyubi.sunshine.model.ForecastViewModel;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String LOG_TAG = MainActivity.class.getSimpleName() ;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         if (savedInstanceState == null) {
-            getFragmentManager().beginTransaction()
+            getSupportFragmentManager().beginTransaction()
                     .add(R.id.container, new ForecastFragment())
                     .commit();
         }
+
+        // Get a reference to the ViewModel for this screen.
 
     }
 

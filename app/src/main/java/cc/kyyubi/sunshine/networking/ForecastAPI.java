@@ -19,7 +19,7 @@ public class ForecastAPI {
     private static ForecastService forecastService = null;
 
     public static ForecastService getApi(){
-        if(forecastService== null){
+        if(forecastService == null){
             Retrofit retrofit =  new Retrofit.Builder()
                     .baseUrl(BASE_URL)
                     .addConverterFactory(GsonConverterFactory.create())
@@ -31,7 +31,7 @@ public class ForecastAPI {
 
     public interface ForecastService {
 
-        //Receive Forecast for the specified city and no of days
+        //Receive Forecast of the specified city for the no of days
         @GET("forecast/daily?appid=" + API_KEY)
         Call<ForecastResponse> getForecast(@Query("q") String city, @Query("cnt") int days, @Query("units") String units);
     }
